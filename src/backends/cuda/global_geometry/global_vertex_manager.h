@@ -206,7 +206,7 @@ class GlobalVertexManager final : public SimSystem
         muda::DeviceVar<Vector3> max_pos;
 
 
-        SimSystemSlot<GlobalActiveSetManager> global_active_set_manager;
+        SimSystemSlot<GlobalActiveSetManager>   global_active_set_manager;
         SimSystemSlotCollection<VertexReporter> vertex_reporters;
 
         OffsetCountCollection<IndexT> reporter_vertex_offsets_counts;
@@ -228,6 +228,7 @@ class GlobalVertexManager final : public SimSystem
     friend class SimEngine;
     friend class MaxTranslationChecker;
     friend class GlobalTrajectoryFilter;
+    friend class GlobalActiveSetManager;
 
     // Initialize the global vertex manager
     // - Create the surface mesh
