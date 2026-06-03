@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <sim_system.h>
 #include <collision_detection/global_trajectory_filter.h>
 #include <collision_detection/simplex_trajectory_filter.h>
@@ -110,6 +111,8 @@ class GlobalActiveSetManager final : public SimSystem
         S<const geometry::AttributeSlot<Float>> dt_attr;
         Float                                   toi_threshold;
         Float                                   alpha_lower_bound;
+        std::string                             mu_scale_mode;
+        Float                                   mu_scale_diag_norm;
         bool                                    energy_enabled;
         bool should_discard_friction_candidates = false;
 
@@ -123,8 +126,17 @@ class GlobalActiveSetManager final : public SimSystem
             buf.resize(new_size);
         }
 
+        // Scratch buffer for per-vertex minimum TOI, reused across calls
+        muda::DeviceBuffer<Float> T_v;
+        // Per-pair max(T_v) buffers — filled by filter_new_candidates(), consumed by update_active_set()
+        muda::DeviceBuffer<Float> PH_max_Tv;
+        muda::DeviceBuffer<Float> PT_max_Tv;
+        muda::DeviceBuffer<Float> EE_max_Tv;
+
         void init_mu();
+        void init_mu_from_scalar(Float mu);
         void filter_active();
+        void filter_new_candidates();
         void update_active_set();
         void linearize_constraints();
         void update_slack();
@@ -168,10 +180,13 @@ class GlobalActiveSetManager final : public SimSystem
 
     muda::CBufferView<Float> mu_vertices() const;
     //tex: $\Gamma$
-    Float decay_factor() const;
-    Float toi_threshold() const;
-    Float alpha_lower_bound() const;
-    bool  is_enabled() const;
+    Float       decay_factor() const;
+    Float       toi_threshold() const;
+    Float       alpha_lower_bound() const;
+    bool        is_enabled() const;
+    std::string mu_scale_mode() const;
+    Float       mu_scale_diag_norm() const;
+    void        init_mu_from_scalar(Float mu);
 
   protected:
     virtual void do_build() override;

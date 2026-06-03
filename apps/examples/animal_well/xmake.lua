@@ -1,0 +1,5 @@
+target("animal_well")
+    set_kind("binary")
+    set_group("apps/examples")
+    add_files("main.cpp")
+    add_deps("app","cuda")

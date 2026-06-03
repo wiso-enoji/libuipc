@@ -9,6 +9,8 @@
 #include <pipeline/al_ipc_pipeline_flag.h>
 #include <uipc/common/log.h>
 #include <implicit_geometry/half_plane_vertex_reporter.h>
+#include <contact_system/al_contact_function.h>
+#include <backends/common/backend_path_tool.h>
 
 namespace uipc::backend::cuda
 {
@@ -60,19 +62,162 @@ void GlobalActiveSetManager::Impl::filter_active()
                    });
     };
 
+    filter(PH_cnt);
     filter(PT_cnt);
     filter(EE_cnt);
+}
+
+void GlobalActiveSetManager::Impl::filter_new_candidates()
+{
+    using namespace muda;
+
+    auto  vs    = global_simplicial_surface_manager->surf_vertices();
+    auto  edges = global_simplicial_surface_manager->surf_edges();
+    auto  tris  = global_simplicial_surface_manager->surf_triangles();
+    SizeT n_v   = global_vertex_manager->positions().size();
+    loose_resize(T_v, n_v);
+
+    // Compute per-vertex minimum TOI across all new candidates (non-negative
+    // floats only, so integer atomicMin on the IEEE 754 bits is correct).
+    ParallelFor()
+        .file_line(__FILE__, __LINE__)
+        .apply(n_v,
+               [T_v = T_v.viewer().name("T_v")] __device__(int i) mutable
+               { T_v(i) = 2.0; });
+
+    if(vertex_half_plane_trajectory_filter)
+    {
+        auto cand = vertex_half_plane_trajectory_filter->candidate_PHs();
+        auto tois = vertex_half_plane_trajectory_filter->toi_PHs();
+        ParallelFor()
+            .file_line(__FILE__, __LINE__)
+            .apply(cand.size(),
+                   [cand = cand.cviewer().name("cand_PH"),
+                    tois = tois.cviewer().name("tois_PH"),
+                    T_v  = T_v.viewer().name("T_v")] __device__(int i) mutable
+                   {
+                       atomicMin((int*)&T_v(cand(i)[0]), __float_as_int(tois(i)));
+                   });
+    }
+    if(simplex_trajectory_filter)
+    {
+        {
+            auto cand = simplex_trajectory_filter->candidate_PTs();
+            auto tois = simplex_trajectory_filter->toi_PTs();
+            ParallelFor()
+                .file_line(__FILE__, __LINE__)
+                .apply(cand.size(),
+                       [cand = cand.cviewer().name("cand_PT"),
+                        tois = tois.cviewer().name("tois_PT"),
+                        vs   = vs.cviewer().name("vs"),
+                        tris = tris.cviewer().name("tris"),
+                        T_v = T_v.viewer().name("T_v")] __device__(int i) mutable
+                       {
+                           int      ri = __float_as_int(tois(i));
+                           Vector3i t  = tris(cand(i)[1]);
+                           atomicMin((int*)&T_v(vs(cand(i)[0])), ri);
+                           atomicMin((int*)&T_v(t[0]), ri);
+                           atomicMin((int*)&T_v(t[1]), ri);
+                           atomicMin((int*)&T_v(t[2]), ri);
+                       });
+        }
+        {
+            auto cand = simplex_trajectory_filter->candidate_EEs();
+            auto tois = simplex_trajectory_filter->toi_EEs();
+            ParallelFor()
+                .file_line(__FILE__, __LINE__)
+                .apply(cand.size(),
+                       [cand  = cand.cviewer().name("cand_EE"),
+                        tois  = tois.cviewer().name("tois_EE"),
+                        edges = edges.cviewer().name("edges"),
+                        T_v = T_v.viewer().name("T_v")] __device__(int i) mutable
+                       {
+                           int      ri = __float_as_int(tois(i));
+                           Vector2i e0 = edges(cand(i)[0]);
+                           Vector2i e1 = edges(cand(i)[1]);
+                           atomicMin((int*)&T_v(e0[0]), ri);
+                           atomicMin((int*)&T_v(e0[1]), ri);
+                           atomicMin((int*)&T_v(e1[0]), ri);
+                           atomicMin((int*)&T_v(e1[1]), ri);
+                       });
+        }
+    }
+
+    // Reset before conditional fill so no stale data remains if a filter is null
+    PH_max_Tv.resize(0);
+    PT_max_Tv.resize(0);
+    EE_max_Tv.resize(0);
+
+    // Per-pair max(T_v) — stored as members, consumed by update_active_set()
+    if(vertex_half_plane_trajectory_filter)
+    {
+        auto cand = vertex_half_plane_trajectory_filter->candidate_PHs();
+        PH_max_Tv.resize(cand.size());
+        ParallelFor()
+            .file_line(__FILE__, __LINE__)
+            .apply(cand.size(),
+                   [cand = cand.cviewer().name("cand_PH"),
+                    T_v  = T_v.cviewer().name("T_v"),
+                    max_Tv = PH_max_Tv.viewer().name("PH_max_Tv")] __device__(int i) mutable
+                   { max_Tv(i) = T_v(cand(i)[0]); });
+    }
+    if(simplex_trajectory_filter)
+    {
+        {
+            auto cand = simplex_trajectory_filter->candidate_PTs();
+            PT_max_Tv.resize(cand.size());
+            ParallelFor()
+                .file_line(__FILE__, __LINE__)
+                .apply(cand.size(),
+                       [cand = cand.cviewer().name("cand_PT"),
+                        T_v  = T_v.cviewer().name("T_v"),
+                        vs   = vs.cviewer().name("vs"),
+                        tris = tris.cviewer().name("tris"),
+                        max_Tv = PT_max_Tv.viewer().name("PT_max_Tv")] __device__(int i) mutable
+                       {
+                           Vector3i t = tris(cand(i)[1]);
+                           Float    v = T_v(vs(cand(i)[0]));
+                           v          = max(v, T_v(t[0]));
+                           v          = max(v, T_v(t[1]));
+                           v          = max(v, T_v(t[2]));
+                           max_Tv(i)  = v;
+                       });
+        }
+        {
+            auto cand = simplex_trajectory_filter->candidate_EEs();
+            EE_max_Tv.resize(cand.size());
+            ParallelFor()
+                .file_line(__FILE__, __LINE__)
+                .apply(cand.size(),
+                       [cand  = cand.cviewer().name("cand_EE"),
+                        T_v   = T_v.cviewer().name("T_v"),
+                        edges = edges.cviewer().name("edges"),
+                        max_Tv = EE_max_Tv.viewer().name("EE_max_Tv")] __device__(int i) mutable
+                       {
+                           Vector2i e0 = edges(cand(i)[0]);
+                           Vector2i e1 = edges(cand(i)[1]);
+                           Float    v  = T_v(e0[0]);
+                           v           = max(v, T_v(e0[1]));
+                           v           = max(v, T_v(e1[0]));
+                           v           = max(v, T_v(e1[1]));
+                           max_Tv(i)   = v;
+                       });
+        }
+    }
 }
 
 void GlobalActiveSetManager::Impl::update_active_set()
 {
     using namespace muda;
 
+    filter_new_candidates();
+
     auto merge = [&](DeviceBuffer<Vector2i>&      idx,
                      DeviceBuffer<Float>&         lambda,
                      DeviceBuffer<int>&           cnt,
                      const CBufferView<Vector2i>& new_idx,
-                     const CBufferView<Float>&    tois)
+                     const CBufferView<Float>&    tois,
+                     const CBufferView<Float>&    max_Tv)
     {
         const auto N0 = idx.size(), N = idx.size() + new_idx.size();
         loose_resize(ij_hash_input, N);
@@ -90,6 +235,7 @@ void GlobalActiveSetManager::Impl::update_active_set()
                     idx1      = new_idx.cviewer().name("idx1"),
                     tois      = tois.cviewer().name("tois"),
                     cnt       = cnt.cviewer().name("cnt"),
+                    max_Tv    = max_Tv.cviewer().name("max_Tv"),
                     ij_hash   = ij_hash_input.viewer().name("ij_hash"),
                     sort_idx  = sort_index_input.viewer().name("sort_idx"),
                     threshold = 25] __device__(int i) mutable
@@ -99,7 +245,8 @@ void GlobalActiveSetManager::Impl::update_active_set()
                            ij_hash(i) = (static_cast<int64_t>(idx0(i)(0)) << 32)
                                         + static_cast<int64_t>(idx0(i)(1));
                        }
-                       else if(i >= N0 && tois(i - N0) < 1 - 1e-6)
+                       else if(i >= N0 && tois(i - N0) < 1 - 1e-6
+                               && tois(i - N0) < max_Tv(i - N0) + 1e-6)
                        {
                            ij_hash(i) = (static_cast<int64_t>(idx1(i - N0)(0)) << 32)
                                         + static_cast<int64_t>(idx1(i - N0)(1));
@@ -206,7 +353,8 @@ void GlobalActiveSetManager::Impl::update_active_set()
               PH_lambda,
               PH_cnt,
               vertex_half_plane_trajectory_filter->candidate_PHs(),
-              vertex_half_plane_trajectory_filter->toi_PHs());
+              vertex_half_plane_trajectory_filter->toi_PHs(),
+              PH_max_Tv.view());
     }
 
     if(simplex_trajectory_filter)
@@ -215,13 +363,15 @@ void GlobalActiveSetManager::Impl::update_active_set()
               PT_lambda,
               PT_cnt,
               simplex_trajectory_filter->candidate_PTs(),
-              simplex_trajectory_filter->toi_PTs());
+              simplex_trajectory_filter->toi_PTs(),
+              PT_max_Tv.view());
 
         merge(EE_idx,
               EE_lambda,
               EE_cnt,
               simplex_trajectory_filter->candidate_EEs(),
-              simplex_trajectory_filter->toi_EEs());
+              simplex_trajectory_filter->toi_EEs(),
+              EE_max_Tv.view());
     }
 
     logger::info("Active set update: {} + {} + {} -> {} + {} + {}",
@@ -527,18 +677,12 @@ void GlobalActiveSetManager::Impl::update_lambda()
                        if(d + d_shift - lambda / mu > 0)
                        {
                            lambda = 0;
-                           if(cnt >= 0)
-                               cnt++;
-                           else
-                               cnt--;
+                           cnt++;
                        }
                        else
                        {
                            lambda -= (d + d_shift) * mu;
-                           if(cnt == 0 || cnt > 5)
-                               cnt = 0;
-                           else
-                               cnt = -1;
+                           cnt = 0;
                        }
                    });
     }
@@ -557,7 +701,7 @@ void GlobalActiveSetManager::Impl::update_lambda()
                {
                    auto  PT = PTs(idx);
                    auto  mu = min(min(mu_vertices(PT(0)), mu_vertices(PT(1))),
-                                  min(mu_vertices(PT(2)), mu_vertices(PT(3))));
+                                 min(mu_vertices(PT(2)), mu_vertices(PT(3))));
                    auto  d_grad = PT_d_grad(idx);
                    auto  d = d0(idx), &lambda = PT_lambda(idx), d_shift = 0.0;
                    auto& cnt = PT_cnt(idx);
@@ -569,18 +713,12 @@ void GlobalActiveSetManager::Impl::update_lambda()
                    if(d + d_shift - lambda / mu > 0)
                    {
                        lambda = 0;
-                       if(cnt >= 0)
-                           cnt++;
-                       else
-                           cnt--;
+                       cnt++;
                    }
                    else
                    {
                        lambda -= (d + d_shift) * mu;
-                       if(cnt == 0 || cnt > 5)
-                           cnt = 0;
-                       else
-                           cnt = -1;
+                       cnt = 0;
                    }
                });
 
@@ -598,7 +736,7 @@ void GlobalActiveSetManager::Impl::update_lambda()
                {
                    auto  EE = EEs(idx);
                    auto  mu = min(min(mu_vertices(EE(0)), mu_vertices(EE(1))),
-                                  min(mu_vertices(EE(2)), mu_vertices(EE(3))));
+                                 min(mu_vertices(EE(2)), mu_vertices(EE(3))));
                    auto  d_grad = EE_d_grad(idx);
                    auto  d = d0(idx), &lambda = EE_lambda(idx), d_shift = 0.0;
                    auto& cnt = EE_cnt(idx);
@@ -610,18 +748,12 @@ void GlobalActiveSetManager::Impl::update_lambda()
                    if(d + d_shift - lambda / mu > 0)
                    {
                        lambda = 0;
-                       if(cnt >= 0)
-                           cnt++;
-                       else
-                           cnt--;
+                       cnt++;
                    }
                    else
                    {
                        lambda -= (d + d_shift) * mu;
-                       if(cnt == 0 || cnt > 5)
-                           cnt = 0;
-                       else
-                           cnt = -1;
+                       cnt = 0;
                    }
                });
 }
@@ -864,6 +996,12 @@ void GlobalActiveSetManager::Impl::init(WorldVisitor& world)
     alpha_lower_bound =
         config.find<Float>("contact/al-ipc/alpha_lower_bound")->view()[0];
     energy_enabled = true;
+
+    auto mu_scale_mode_slot = config.find<std::string>("contact/al-ipc/mu_scale_mode");
+    auto mu_scale_diag_norm_slot = config.find<Float>("contact/al-ipc/mu_scale_diag_norm");
+    mu_scale_mode = mu_scale_mode_slot ? mu_scale_mode_slot->view()[0] : "diag_norm";
+    mu_scale_diag_norm =
+        mu_scale_diag_norm_slot ? mu_scale_diag_norm_slot->view()[0] : Float{0.1};
 }
 
 void GlobalActiveSetManager::init()
@@ -871,9 +1009,30 @@ void GlobalActiveSetManager::init()
     m_impl.init(world());
 }
 
+void GlobalActiveSetManager::Impl::init_mu_from_scalar(Float mu)
+{
+    mu_vertices.resize(global_vertex_manager->positions().size());
+    mu_vertices.view().fill(mu);
+}
+
 void GlobalActiveSetManager::init_mu()
 {
     m_impl.init_mu();
+}
+
+void GlobalActiveSetManager::init_mu_from_scalar(Float mu)
+{
+    m_impl.init_mu_from_scalar(mu);
+}
+
+std::string GlobalActiveSetManager::mu_scale_mode() const
+{
+    return m_impl.mu_scale_mode;
+}
+
+Float GlobalActiveSetManager::mu_scale_diag_norm() const
+{
+    return m_impl.mu_scale_diag_norm;
 }
 
 void GlobalActiveSetManager::filter_active()

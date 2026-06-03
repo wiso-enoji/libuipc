@@ -81,7 +81,19 @@ void SimEngine::advance_AL()
         {
             m_global_active_set_manager->disable();
 
-            m_global_active_set_manager->init_mu();
+            if(m_global_active_set_manager->mu_scale_mode() == "diag_norm")
+            {
+                if(m_global_dytopo_effect_manager)
+                    m_global_dytopo_effect_manager->compute_dytopo_effect();
+                Float norm = m_global_linear_system->diag_norm();
+                Float mu = norm * m_global_active_set_manager->mu_scale_diag_norm();
+                m_global_active_set_manager->init_mu_from_scalar(mu);
+            }
+            else
+            {
+                m_global_active_set_manager->init_mu();
+            }
+
             m_global_active_set_manager->enable();
         }
     };
@@ -312,6 +324,11 @@ void SimEngine::advance_AL()
             // 4. Nonlinear-Newton Iteration
             m_newton_tolerance_manager->pre_newton(m_current_frame);
 
+            auto& scene_config = world().scene().config();
+            auto  dt_slot      = scene_config.find<Float>("dt");
+            auto vel_tol_slot = scene_config.find<Float>("newton/velocity_tol");
+            Float newton_velocity_tol = vel_tol_slot ? vel_tol_slot->view()[0] : 0.05;
+
             auto   newton_max_iter = m_newton_max_iter->view()[0];
             auto   newton_min_iter = m_newton_min_iter->view()[0];
             IndexT newton_iter     = 0;
@@ -339,14 +356,14 @@ void SimEngine::advance_AL()
                     m_global_linear_system->solve();
                 }
 
-                NewtonToleranceManager::ResultInfo result_info;
-                result_info.frame(m_current_frame);
-                result_info.newton_iter(newton_iter);
-                m_newton_tolerance_manager->check(result_info);
-                bool newton_converged = result_info.converged();
-
                 // 5) Collect Vertex Displacements Globally
                 m_global_vertex_manager->collect_vertex_displacements();
+
+                Float dt = dt_slot->view()[0];
+                Float vel_error =
+                    m_global_vertex_manager->compute_axis_max_displacement() / dt;
+                bool newton_converged = vel_error < newton_velocity_tol;
+                bool flag_clamped     = vel_error > newton_velocity_tol * 100;
 
                 // 6) Begin Line Search
                 m_state = SimEngineState::LineSearch;
@@ -363,8 +380,7 @@ void SimEngine::advance_AL()
                     // Compute Current Energy => E_0
                     Float E0 = m_line_searcher->compute_energy(true);  // initial energy
 
-                    // CFL Condition
-                    alpha = cfl_condition(alpha);
+                    alpha = 1.0;
 
                     // * Step Forward => x = x_0 + alpha * dx
                     // Compute Test Energy => E
@@ -380,6 +396,8 @@ void SimEngine::advance_AL()
                             // TODO: maybe better condition like Wolfe condition/Armijo condition in the future
                             bool success = E <= E0 + 1e-12 || newton_converged;
 
+                            logger::info("[Backtracking] alpha: {}, E: {} -> {}", alpha, E0, E);
+
                             if(success)
                                 break;
 
@@ -393,8 +411,13 @@ void SimEngine::advance_AL()
                         // Check Line Search Iteration
                         // report warnings or throw exceptions if needed
                         check_line_search_iter(line_search_iter);
+                        if(line_search_iter > 0)
+                            flag_clamped = true;
                     }
                 }
+
+                if((newton_iter + 1 < newton_min_iter || flag_clamped) && !newton_converged)
+                    continue;
 
                 // 7) CCD for AL contact
                 m_state = SimEngineState::AdvanceNonPenetrate;
@@ -418,10 +441,10 @@ void SimEngine::advance_AL()
                 beta = beta + (1 - beta) * alpha;
 
                 bool converged = convergence_check(newton_iter);
-                bool terminated =
-                    converged && (newton_iter + 1 >= newton_min_iter || newton_converged);
 
-                if(terminated)
+                logger::info("beta: {}", beta);
+
+                if(converged)
                     break;
             }
 

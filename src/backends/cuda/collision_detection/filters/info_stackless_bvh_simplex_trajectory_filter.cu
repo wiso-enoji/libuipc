@@ -1137,7 +1137,7 @@ void InfoStacklessBVHSimplexTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& in
 
     UIPC_ASSERT(offset == toi_size, "size mismatch");
 
-    constexpr Float eta = 0.1;
+    constexpr Float eta = 0.01;
 
     constexpr SizeT max_iter = 1000;
 

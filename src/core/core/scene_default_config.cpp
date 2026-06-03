@@ -49,6 +49,8 @@ geometry::AttributeCollection default_scene_config() noexcept
     config.create("contact/constitution", std::string{"ipc"});
 
     // al-ipc tuning knobs. They are ignored when contact/constitution != "al-ipc".
+    config.create("contact/al-ipc/mu_scale_mode", std::string{"diag_norm"});
+    config.create("contact/al-ipc/mu_scale_diag_norm", Float{0.1});
     config.create("contact/al-ipc/mu_scale_fem", Float{5e7});
     config.create("contact/al-ipc/mu_scale_abd", Float{1e5});
     config.create("contact/al-ipc/toi_threshold", Float{0.1});
