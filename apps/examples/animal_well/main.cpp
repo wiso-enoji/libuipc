@@ -33,7 +33,6 @@ int main()
     config["gravity"]                       = Vector3{0, -9.81, 0};
     config["dt"]                            = 0.01;
     config["linear_system"]["tol_rate"]     = 1e-4;
-    config["line_search"]["max_iter"]       = 256;
     config["contact"]["enable"]             = true;
     config["contact"]["d_hat"]              = 0.002;
     config["contact"]["friction"]["enable"] = false;
@@ -43,7 +42,6 @@ int main()
         config["newton"]["min_iter"]                 = 2;
         config["contact"]["al-ipc"]["toi_threshold"] = 0.001;
         config["contact"]["al-ipc"]["decay_factor"]  = 0.9;
-        config["newton"]["velocity_tol"]             = 1.0;
     }
 
     Scene scene{config};
