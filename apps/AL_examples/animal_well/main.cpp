@@ -24,7 +24,7 @@ int main()
     std::string trimesh_dir{AssetDir::trimesh_path()};
     auto this_output_path = AssetDir::output_path(UIPC_RELATIVE_SOURCE_FILE);
 
-    std::string contact_constitution = "ipc";
+    std::string contact_constitution = "al-ipc";
 
     Engine engine{"cuda", this_output_path};
     World  world{engine};
