@@ -24,7 +24,7 @@ int main()
     std::string trimesh_dir{AssetDir::trimesh_path()};
     auto this_output_path = AssetDir::output_path(UIPC_RELATIVE_SOURCE_FILE);
 
-    std::string contact_constitution = "al-ipc";
+    std::string contact_constitution = "ipc";
 
     Engine engine{"cuda", this_output_path};
     World  world{engine};
@@ -40,6 +40,7 @@ int main()
     if(contact_constitution == "al-ipc")
     {
         config["newton"]["min_iter"]                 = 2;
+        config["newton"]["velocity_tol"]             = 1.0;
         config["contact"]["al-ipc"]["toi_threshold"] = 0.001;
         config["contact"]["al-ipc"]["decay_factor"]  = 0.9;
     }
@@ -55,7 +56,7 @@ int main()
         SimplicialComplexIO io;
 
         // Pool -- fixed FEM shell (NeoHookeanShell, all vertices is_fixed=1)
-        auto pool = io.read(fmt::format("{}pool.obj", trimesh_dir));
+        auto pool = io.read(fmt::format("{}pool1.obj", trimesh_dir));
         label_surface(pool);
         nhs.apply_to(pool, ElasticModuli2D::youngs_poisson(1.0_MPa, 0.49));
         default_element.apply_to(pool);

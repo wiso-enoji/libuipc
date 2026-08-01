@@ -15,3 +15,6 @@ endif()
 if(UIPC_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
+
+# AL examples
+add_subdirectory(AL_examples)

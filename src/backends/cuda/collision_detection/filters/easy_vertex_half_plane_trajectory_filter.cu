@@ -145,7 +145,7 @@ void EasyVertexHalfPlaneTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& info)
     tois.resize(info.surf_vertices().size());
 
     // TODO: just hard code the slackness for now
-    constexpr Float eta = 0.01;
+    constexpr Float eta = 0.001;
 
     ParallelFor()
         .file_line(__FILE__, __LINE__)

@@ -13,7 +13,7 @@
 
 namespace uipc::backend::cuda
 {
-constexpr bool PrintDebugInfo = false;
+constexpr bool PrintDebugInfo          = false;
 constexpr bool PrintKernelZeroDistance = false;
 
 REGISTER_SIM_SYSTEM(InfoStacklessBVHV0SimplexTrajectoryFilter);
@@ -43,14 +43,12 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::do_filter_toi(FilterTOIInfo& inf
     m_impl.filter_toi(info);
 }
 
-muda::CBufferView<Vector2i>
-InfoStacklessBVHV0SimplexTrajectoryFilter::candidate_PTs() const noexcept
+muda::CBufferView<Vector2i> InfoStacklessBVHV0SimplexTrajectoryFilter::candidate_PTs() const noexcept
 {
     return m_impl.candidate_AllP_AllT_pairs.view();
 }
 
-muda::CBufferView<Vector2i>
-InfoStacklessBVHV0SimplexTrajectoryFilter::candidate_EEs() const noexcept
+muda::CBufferView<Vector2i> InfoStacklessBVHV0SimplexTrajectoryFilter::candidate_EEs() const noexcept
 {
     return m_impl.candidate_AllE_AllE_pairs.view();
 }
@@ -76,17 +74,17 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
 {
     using namespace muda;
 
-    auto alpha   = info.alpha();
-    auto Ps      = info.positions();
-    auto dxs     = info.displacements();
-    auto codimVs = info.codim_vertices();
-    auto Vs      = info.surf_vertices();
-    auto Es      = info.surf_edges();
-    auto Fs      = info.surf_triangles();
-    auto v2bs    = info.v2b();
+    auto alpha                = info.alpha();
+    auto Ps                   = info.positions();
+    auto dxs                  = info.displacements();
+    auto codimVs              = info.codim_vertices();
+    auto Vs                   = info.surf_vertices();
+    auto Es                   = info.surf_edges();
+    auto Fs                   = info.surf_triangles();
+    auto v2bs                 = info.v2b();
     auto body_self_collisions = info.body_self_collision();
     auto contact_element_ids  = info.contact_element_ids();
-    auto cmts = info.contact_mask_tabular();
+    auto cmts                 = info.contact_mask_tabular();
 
     point_aabbs.resize(Vs.size());
     triangle_aabbs.resize(Fs.size());
@@ -136,8 +134,8 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
                        aabb.min().array() -= expand;
                        aabb.max().array() += expand;
                        aabbs(i) = aabb;
-                       bids(i) = v2bs(vI);
-                       cids(i) = contact_ids(vI);
+                       bids(i)  = v2bs(vI);
+                       cids(i)  = contact_ids(vI);
                    });
     }
 
@@ -291,8 +289,8 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
                  cmts = cmts.viewer().name("cmts")] __device__(InfoStacklessBVHV0::NodePredInfo info)
                 {
                     constexpr IndexT invalid = static_cast<IndexT>(-1);
-                    auto qbid = query_bids(info.query_id);
-                    auto qcid = query_cids(info.query_id);
+                    auto             qbid    = query_bids(info.query_id);
+                    auto             qcid    = query_cids(info.query_id);
                     bool bid_cull = info.node_bid != invalid && qbid != invalid
                                     && qbid == info.node_bid
                                     && !body_self_collision(qbid);
@@ -370,8 +368,8 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
                  cmts = cmts.viewer().name("cmts")] __device__(InfoStacklessBVHV0::NodePredInfo info)
                 {
                     constexpr IndexT invalid = static_cast<IndexT>(-1);
-                    auto qbid = query_bids(info.query_id);
-                    auto qcid = query_cids(info.query_id);
+                    auto             qbid    = query_bids(info.query_id);
+                    auto             qcid    = query_cids(info.query_id);
                     bool bid_cull = info.node_bid != invalid && qbid != invalid
                                     && qbid == info.node_bid
                                     && !body_self_collision(qbid);
@@ -453,11 +451,10 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
              cmts = cmts.viewer().name("cmts")] __device__(InfoStacklessBVHV0::NodePredInfo info)
             {
                 constexpr IndexT invalid = static_cast<IndexT>(-1);
-                auto qbid = query_bids(info.query_id);
-                auto qcid = query_cids(info.query_id);
+                auto             qbid    = query_bids(info.query_id);
+                auto             qcid    = query_cids(info.query_id);
                 bool bid_cull = info.node_bid != invalid && qbid != invalid
-                                && qbid == info.node_bid
-                                && !body_self_collision(qbid);
+                                && qbid == info.node_bid && !body_self_collision(qbid);
                 bool cid_cull = info.node_cid != invalid && qcid != invalid
                                 && !cmts(qcid, info.node_cid);
                 return !(bid_cull || cid_cull);
@@ -545,11 +542,10 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::detect(DetectInfo& info)
              cmts = cmts.viewer().name("cmts")] __device__(InfoStacklessBVHV0::NodePredInfo info)
             {
                 constexpr IndexT invalid = static_cast<IndexT>(-1);
-                auto qbid = query_bids(info.query_id);
-                auto qcid = query_cids(info.query_id);
+                auto             qbid    = query_bids(info.query_id);
+                auto             qcid    = query_cids(info.query_id);
                 bool bid_cull = info.node_bid != invalid && qbid != invalid
-                                && qbid == info.node_bid
-                                && !body_self_collision(qbid);
+                                && qbid == info.node_bid && !body_self_collision(qbid);
                 bool cid_cull = info.node_cid != invalid && qcid != invalid
                                 && !cmts(qcid, info.node_cid);
                 return !(bid_cull || cid_cull);
@@ -683,16 +679,29 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
                        {
                            if(D <= range.x())
                            {
-                               printf("[ISBVH][PP][low-dist] i=%d P=(%d,%d) D=%e range=(%e,%e) "
-                                      "thickness=%e d_hat=%e\n",
-                                      i, P0, P1, D, range.x(), range.y(), thickness, d_hat);
+                               printf(
+                                   "[ISBVH][PP][low-dist] i=%d P=(%d,%d) D=%e range=(%e,%e) "
+                                   "thickness=%e d_hat=%e\n",
+                                   i,
+                                   P0,
+                                   P1,
+                                   D,
+                                   range.x(),
+                                   range.y(),
+                                   thickness,
+                                   d_hat);
                            }
                        }
 
                        MUDA_ASSERT(D > range.x(),
                                    "Thickness Violated! D(%f) should be > D_range.x(%f), "
                                    "P=(%d,%d), thickness=%f, d_hat=%f",
-                                   D, range.x(), P0, P1, thickness, d_hat);
+                                   D,
+                                   range.x(),
+                                   P0,
+                                   P1,
+                                   thickness,
+                                   d_hat);
                        if(!is_active_D(range, D))
                            return;
 
@@ -749,18 +758,37 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
                     {
                         if(D <= range.x())
                         {
-                            printf("[ISBVH][PE][low-dist] i=%d V-E=(%d,%d,%d) flag=(%d,%d,%d) "
-                                   "D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i, vIs(0), vIs(1), vIs(2), flag(0), flag(1), flag(2),
-                                   D, range.x(), range.y(), thickness, d_hat);
+                            printf(
+                                "[ISBVH][PE][low-dist] i=%d V-E=(%d,%d,%d) flag=(%d,%d,%d) "
+                                "D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
 
                     MUDA_ASSERT(D > range.x(),
                                 "Thickness Violated! D(%f) should be > D_range.x(%f), "
                                 "V-E=(%d,%d,%d), flag=(%d,%d,%d), thickness=%f, d_hat=%f",
-                                D, range.x(), vIs(0), vIs(1), vIs(2),
-                                flag(0), flag(1), flag(2), thickness, d_hat);
+                                D,
+                                range.x(),
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                thickness,
+                                d_hat);
                     if(!is_active_D(range, D))
                         return;
 
@@ -769,15 +797,13 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
 
                     switch(dim)
                     {
-                        case 2:
-                        {
+                        case 2: {
                             IndexT V0 = vIs(offsets(0));
                             IndexT V1 = vIs(offsets(1));
                             PP        = {V0, V1};
                         }
                         break;
-                        case 3:
-                        {
+                        case 3: {
                             PE = vIs;
                         }
                         break;
@@ -848,11 +874,23 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
                     {
                         if(D <= range.x())
                         {
-                            printf("[ISBVH][PT][low-dist] i=%d V-F=(%d,%d,%d,%d) "
-                                   "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i, vIs(0), vIs(1), vIs(2), vIs(3),
-                                   flag(0), flag(1), flag(2), flag(3),
-                                   D, range.x(), range.y(), thickness, d_hat);
+                            printf(
+                                "[ISBVH][PT][low-dist] i=%d V-F=(%d,%d,%d,%d) "
+                                "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                vIs(3),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                flag(3),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
 
@@ -862,8 +900,18 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
                     MUDA_ASSERT(D > range.x(),
                                 "Thickness Violated! D(%f) should be > D_range.x(%f), "
                                 "V-F=(%d,%d,%d,%d), flag=(%d,%d,%d,%d), thickness=%f, d_hat=%f",
-                                D, range.x(), vIs(0), vIs(1), vIs(2), vIs(3),
-                                flag(0), flag(1), flag(2), flag(3), thickness, d_hat);
+                                D,
+                                range.x(),
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                vIs(3),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                flag(3),
+                                thickness,
+                                d_hat);
                     if(!is_active_D(range, D))
                         return;
 
@@ -872,23 +920,20 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
 
                     switch(dim)
                     {
-                        case 2:
-                        {
+                        case 2: {
                             IndexT V0 = vIs(offsets(0));
                             IndexT V1 = vIs(offsets(1));
                             PP        = {V0, V1};
                         }
                         break;
-                        case 3:
-                        {
+                        case 3: {
                             IndexT V0 = vIs(offsets(0));
                             IndexT V1 = vIs(offsets(1));
                             IndexT V2 = vIs(offsets(2));
                             PE        = {V0, V1, V2};
                         }
                         break;
-                        case 4:
-                        {
+                        case 4: {
                             PT = vIs;
                         }
                         break;
@@ -958,11 +1003,23 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
                     {
                         if(D <= range.x())
                         {
-                            printf("[ISBVH][EE][low-dist] i=%d E-E=(%d,%d,%d,%d) "
-                                   "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i, vIs(0), vIs(1), vIs(2), vIs(3),
-                                   flag(0), flag(1), flag(2), flag(3),
-                                   D, range.x(), range.y(), thickness, d_hat);
+                            printf(
+                                "[ISBVH][EE][low-dist] i=%d E-E=(%d,%d,%d,%d) "
+                                "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                vIs(3),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                flag(3),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
                     if(D <= range.x())
@@ -993,23 +1050,20 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_active(FilterActive
 
                         switch(dim)
                         {
-                            case 2:
-                            {
+                            case 2: {
                                 IndexT V0 = vIs(offsets(0));
                                 IndexT V1 = vIs(offsets(1));
                                 PP        = {V0, V1};
                             }
                             break;
-                            case 3:
-                            {
+                            case 3: {
                                 IndexT V0 = vIs(offsets(0));
                                 IndexT V1 = vIs(offsets(1));
                                 IndexT V2 = vIs(offsets(2));
                                 PE        = {V0, V1, V2};
                             }
                             break;
-                            case 4:
-                            {
+                            case 4: {
                                 EE = vIs;
                             }
                             break;
@@ -1145,7 +1199,7 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& 
 
     UIPC_ASSERT(offset == toi_size, "size mismatch");
 
-    constexpr Float eta = 0.01;
+    constexpr Float eta = 0.001;
 
     constexpr SizeT max_iter = 1000;
 
@@ -1361,9 +1415,7 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& 
                        Float toi = large_enough_toi;
 
                        bool faraway = !distance::edge_edge_ccd_broadphase(
-                           EP0, EP1, EP2, EP3,
-                           dEP0, dEP1, dEP2, dEP3,
-                           d_hat + thickness);
+                           EP0, EP1, EP2, EP3, dEP0, dEP1, dEP2, dEP3, d_hat + thickness);
 
                        if(faraway)
                        {
@@ -1372,9 +1424,7 @@ void InfoStacklessBVHV0SimplexTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& 
                        }
 
                        bool hit = distance::edge_edge_ccd(
-                           EP0, EP1, EP2, EP3,
-                           dEP0, dEP1, dEP2, dEP3,
-                           eta, thickness, max_iter, toi);
+                           EP0, EP1, EP2, EP3, dEP0, dEP1, dEP2, dEP3, eta, thickness, max_iter, toi);
 
                        if(!hit)
                            toi = large_enough_toi;

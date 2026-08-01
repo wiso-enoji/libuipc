@@ -15,3 +15,4 @@ end
 if has_config("benchmarks") then
     includes("benchmarks")
 end
+includes("AL_examples")

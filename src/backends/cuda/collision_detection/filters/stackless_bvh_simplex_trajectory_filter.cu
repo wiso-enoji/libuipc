@@ -13,7 +13,7 @@
 
 namespace uipc::backend::cuda
 {
-constexpr bool PrintDebugInfo = false;
+constexpr bool PrintDebugInfo          = false;
 constexpr bool PrintKernelZeroDistance = false;
 
 REGISTER_SIM_SYSTEM(StacklessBVHSimplexTrajectoryFilter);
@@ -600,16 +600,17 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                        {
                            if(D <= range.x())
                            {
-                               printf("[SBVH][PP][low-dist] i=%d P=(%d,%d) D=%e range=(%e,%e) "
-                                      "thickness=%e d_hat=%e\n",
-                                      i,
-                                      P0,
-                                      P1,
-                                      D,
-                                      range.x(),
-                                      range.y(),
-                                      thickness,
-                                      d_hat);
+                               printf(
+                                   "[SBVH][PP][low-dist] i=%d P=(%d,%d) D=%e range=(%e,%e) "
+                                   "thickness=%e d_hat=%e\n",
+                                   i,
+                                   P0,
+                                   P1,
+                                   D,
+                                   range.x(),
+                                   range.y(),
+                                   thickness,
+                                   d_hat);
                            }
                        }
 
@@ -679,20 +680,21 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                     {
                         if(D <= range.x())
                         {
-                            printf("[SBVH][PE][low-dist] i=%d V-E=(%d,%d,%d) flag=(%d,%d,%d) "
-                                   "D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i,
-                                   vIs(0),
-                                   vIs(1),
-                                   vIs(2),
-                                   flag(0),
-                                   flag(1),
-                                   flag(2),
-                                   D,
-                                   range.x(),
-                                   range.y(),
-                                   thickness,
-                                   d_hat);
+                            printf(
+                                "[SBVH][PE][low-dist] i=%d V-E=(%d,%d,%d) flag=(%d,%d,%d) "
+                                "D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
 
@@ -709,7 +711,7 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                                 flag(2),
                                 thickness,
                                 d_hat);
-                       if(!is_active_D(range, D))
+                    if(!is_active_D(range, D))
                         return;  // early return
 
                     Vector3i offsets;
@@ -796,22 +798,23 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                     {
                         if(D <= range.x())
                         {
-                            printf("[SBVH][PT][low-dist] i=%d V-F=(%d,%d,%d,%d) "
-                                   "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i,
-                                   vIs(0),
-                                   vIs(1),
-                                   vIs(2),
-                                   vIs(3),
-                                   flag(0),
-                                   flag(1),
-                                   flag(2),
-                                   flag(3),
-                                   D,
-                                   range.x(),
-                                   range.y(),
-                                   thickness,
-                                   d_hat);
+                            printf(
+                                "[SBVH][PT][low-dist] i=%d V-F=(%d,%d,%d,%d) "
+                                "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                vIs(3),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                flag(3),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
 
@@ -833,7 +836,7 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                                 flag(3),
                                 thickness,
                                 d_hat);
-                       if(!is_active_D(range, D))
+                    if(!is_active_D(range, D))
                         return;  // early return
 
                     Vector4i offsets;
@@ -927,22 +930,23 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                     {
                         if(D <= range.x())
                         {
-                            printf("[SBVH][EE][low-dist] i=%d E-E=(%d,%d,%d,%d) "
-                                   "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
-                                   i,
-                                   vIs(0),
-                                   vIs(1),
-                                   vIs(2),
-                                   vIs(3),
-                                   flag(0),
-                                   flag(1),
-                                   flag(2),
-                                   flag(3),
-                                   D,
-                                   range.x(),
-                                   range.y(),
-                                   thickness,
-                                   d_hat);
+                            printf(
+                                "[SBVH][EE][low-dist] i=%d E-E=(%d,%d,%d,%d) "
+                                "flag=(%d,%d,%d,%d) D=%e range=(%e,%e) thickness=%e d_hat=%e\n",
+                                i,
+                                vIs(0),
+                                vIs(1),
+                                vIs(2),
+                                vIs(3),
+                                flag(0),
+                                flag(1),
+                                flag(2),
+                                flag(3),
+                                D,
+                                range.x(),
+                                range.y(),
+                                thickness,
+                                d_hat);
                         }
                     }
                     // Corner case: exact/near-zero EE distance may appear for degenerate or
@@ -953,7 +957,7 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_active(FilterActiveInfo& 
                         EE = vIs;
                         return;
                     }
-                       if(!is_active_D(range, D))
+                    if(!is_active_D(range, D))
                         return;  // early return
 
                     Float eps_x;
@@ -1131,7 +1135,7 @@ void StacklessBVHSimplexTrajectoryFilter::Impl::filter_toi(FilterTOIInfo& info)
 
     // TODO: Now hard code the minimum separation coefficient
     // gap = eta * (dist2_cur - thickness * thickness) / (dist_cur + thickness);
-    constexpr Float eta = 0.01;
+    constexpr Float eta = 0.001;
 
     // TODO: Now hard code the maximum iteration
     constexpr SizeT max_iter = 1000;
