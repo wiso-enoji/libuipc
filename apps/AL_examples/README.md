@@ -13,7 +13,7 @@ To characterize this implementation, we benchmark the animal well scene (first 3
 
 - the **original implementation** [Zheng et al. 2026],
 - **libuipc** with the barrier-free solver (this work) and with standard **IPC**, and
-- **GIPC** [Huang et al. 2024].
+- [**GIPC**](https://github.com/wiso-enoji/GPU_IPC/tree/checkpoint) [Huang et al. 2024].
 
 The barrier-free solver is on par with the original implementation in **Newton and PCG iteration counts**. The main
 remaining gaps are in **Hessian assembly** and **BVH/CCD**, which we are continuing to optimize.
